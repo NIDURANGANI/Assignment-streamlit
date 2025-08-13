@@ -11,19 +11,24 @@ st.set_page_config(page_title="Road Accident Analysis", page_icon="🚦", layout
 # ---------------- Load Data ----------------
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r"C:\Users\Nidurangani\OneDrive\Desktop\Assignment streamlit\data\road_accident.csv")
-    return df
+    try:
+        df = pd.read_csv("data/road_accident.csv")  # relative path
+        return df
+    except FileNotFoundError:
+        st.error("Dataset not found! Make sure 'data/road_accident.csv' is in your repo.")
+        return pd.DataFrame()  # empty DataFrame as fallback
 
 # ---------------- Load Model & Scaler ----------------
 @st.cache_data
 def load_model():
     try:
-        with open(r"C:\Users\Nidurangani\OneDrive\Desktop\Assignment streamlit\best_model.pkl", "rb") as f:
+        with open("best_model.pkl", "rb") as f:
             model = pickle.load(f)
-        with open(r"C:\Users\Nidurangani\OneDrive\Desktop\Assignment streamlit\scaler.pkl", "rb") as f:
+        with open("scaler.pkl", "rb") as f:
             scaler = pickle.load(f)
         return model, scaler
-    except:
+    except FileNotFoundError:
+        st.error("Model or scaler file not found! Make sure they are in your repo.")
         return None, None
 
 df = load_data()
@@ -36,52 +41,60 @@ menu = st.sidebar.radio("Go to", ["Home", "Data Exploration", "Visualisations", 
 # ---------------- Home ----------------
 if menu == "Home":
     st.title("🚦 Road Accident Data Analysis & Prediction")
+    
     st.image("https://www.ghp-news.com/wp-content/uploads/2023/03/AdobeStock_570708583-2.jpg", use_container_width=True)
-    st.write("""
-    Welcome! Explore road accident data, visualize statistics,
-    and predict total accidents based on features.
-    """)
+    
     st.subheader("Dataset Overview")
-    csv = df.to_csv(index=False).encode()
-    st.download_button("📥 Download Dataset", data=csv, file_name="road_accidents.csv", mime="text/csv")
+    if not df.empty:
+        csv = df.to_csv(index=False).encode()
+        st.download_button("📥 Download Dataset", data=csv, file_name="road_accidents.csv", mime="text/csv")
 
 # ---------------- Data Exploration ----------------
 elif menu == "Data Exploration":
     st.title("🔍 Data Exploration")
-    filter_location = st.selectbox("Filter by Location", ["All"] + df["Location"].tolist())
-    df_filtered = df if filter_location=="All" else df[df["Location"]==filter_location]
-    st.dataframe(df_filtered)
-    st.write("Summary Statistics")
-    st.write(df_filtered.describe())
+    if not df.empty:
+        filter_location = st.selectbox("Filter by Location", ["All"] + df["Location"].tolist())
+        df_filtered = df if filter_location=="All" else df[df["Location"]==filter_location]
+        st.dataframe(df_filtered)
+        st.write("Summary Statistics")
+        st.write(df_filtered.describe())
 
 # ---------------- Visualisations ----------------
 elif menu == "Visualisations":
     st.title("📊 Visualisations")
-    chart_option = st.selectbox("Choose Chart", ["Total Accidents by Location", "Deaths Distribution", "Grievous vs Non-Grievous Injuries", "Accident Map"])
-    
-    if chart_option == "Total Accidents by Location":
-        fig = px.bar(df.sort_values("Total", ascending=False), x="Total", y="Location", color="Total", height=600)
-        st.plotly_chart(fig, use_container_width=True)
+    if not df.empty:
+        chart_option = st.selectbox("Choose Chart", ["Total Accidents by Location", "Deaths Distribution", "Grievous vs Non-Grievous Injuries", "Accident Map"])
+        
+        if chart_option == "Total Accidents by Location":
+            fig = px.bar(df.sort_values("Total", ascending=False), x="Total", y="Location", color="Total", height=600)
+            st.plotly_chart(fig, use_container_width=True)
 
-    elif chart_option == "Deaths Distribution":
-        df['Total_Deaths'] = df["No.of Deaths Male"] + df["No.of Deaths Female"]
-        fig = px.histogram(df, x="Total_Deaths", nbins=20, color="Total_Deaths", height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        elif chart_option == "Deaths Distribution":
+            df['Total_Deaths'] = df["No.of Deaths Male"] + df["No.of Deaths Female"]
+            fig = px.histogram(df, x="Total_Deaths", nbins=20, color="Total_Deaths", height=500)
+            st.plotly_chart(fig, use_container_width=True)
 
-    elif chart_option == "Grievous vs Non-Grievous Injuries":
-        df_sum = df[['Grievous Injury Male','Grievous Injury Female','Non Grievous Injury Male','Non Grievous Injury Female']].sum().reset_index()
-        df_sum.columns = ['Type','Count']
-        fig = px.bar(df_sum, x='Type', y='Count', color='Count', height=500)
-        st.plotly_chart(fig, use_container_width=True)
+        elif chart_option == "Grievous vs Non-Grievous Injuries":
+            df_sum = df[['Grievous Injury Male','Grievous Injury Female','Non Grievous Injury Male','Non Grievous Injury Female']].sum().reset_index()
+            df_sum.columns = ['Type','Count']
+            fig = px.bar(df_sum, x='Type', y='Count', color='Count', height=500)
+            st.plotly_chart(fig, use_container_width=True)
 
-    elif chart_option == "Accident Map":
-        # Realistic Sri Lanka lat/lon ranges
-        np.random.seed(42)
-        df['lat'] = np.random.uniform(5.9, 9.85, size=len(df))
-        df['lon'] = np.random.uniform(79.8, 81.9, size=len(df))
-        fig = px.scatter_map(df, lat="lat", lon="lon", size="Total", color="Total",
-                             hover_name="Location", zoom=7, height=600)
-        st.plotly_chart(fig, use_container_width=True)
+        elif chart_option == "Accident Map":
+            np.random.seed(42)
+            df['lat'] = np.random.uniform(5.9, 9.85, size=len(df))
+            df['lon'] = np.random.uniform(79.8, 81.9, size=len(df))
+            fig = px.scatter_map(
+                df,
+                lat="lat",
+                lon="lon",
+                size="Total",
+                color="Total",
+                hover_name="Location",
+                zoom=7,
+                height=600
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
 # ---------------- Model Prediction ----------------
 elif menu == "Model Prediction":
@@ -99,37 +112,40 @@ elif menu == "Model Prediction":
         submitted = st.form_submit_button("Predict")
 
     if submitted:
-        input_data = pd.DataFrame([{
-            "Deaths Male": deaths_male,
-            "Deaths Female": deaths_female,
+        input_data = {
+            "No. of Deaths Male": deaths_male,
+            "No. of Deaths Female": deaths_female,
             "Grievous Injury Male": grievous_male,
             "Grievous Injury Female": grievous_female,
             "Non Grievous Injury Male": non_grievous_male,
             "Non Grievous Injury Female": non_grievous_female
-        }])
-        
+        }
+
+        input_df = pd.DataFrame([input_data])
+
         st.subheader("Input Data")
-        st.table(input_data)
+        st.table(input_df)
 
         if model and scaler:
-            X_scaled = scaler.transform(input_data)
-            prediction = model.predict(X_scaled)[0]
+            X_input = np.array([[deaths_male, deaths_female, grievous_male, grievous_female, non_grievous_male, non_grievous_female]])
+            X_input_scaled = scaler.transform(X_input)
+            prediction = model.predict(X_input_scaled)[0]
+
             st.success(f"Predicted Total Accidents: {int(prediction)}")
-            
+
             pred_df = pd.DataFrame({"Predicted Total Accidents":[int(prediction)]})
             csv_pred = pred_df.to_csv(index=False).encode()
             st.download_button("📥 Download Prediction", data=csv_pred, file_name="prediction.csv", mime="text/csv")
         else:
-            st.info("Model not loaded. Please run training first.")
+            st.info("Model not loaded. Please check your repo.")
     else:
-        st.info("Fill the form and click Predict to see results.")
+        st.info("Fill in the data and click Predict to see the result.")
 
 # ---------------- Model Performance ----------------
 elif menu == "Model Performance":
     st.title("📈 Model Performance")
     models = ['Random Forest', 'Linear Regression', 'SVM']
-    r2_scores = [0.85, 0.68, 0.72]
-    fig = px.bar(x=models, y=r2_scores, color=r2_scores, text=r2_scores,
-                 labels={'x':'Model','y':'R2 Score'}, height=500)
+    r2_scores = [0.85, 0.68, 0.72]  # example
+    fig = px.bar(x=models, y=r2_scores, color=r2_scores, text=r2_scores, labels={'x':'Model','y':'R2 Score'}, height=500)
     st.plotly_chart(fig, use_container_width=True)
     st.write("Confusion Matrix / additional metrics can be added here.")
