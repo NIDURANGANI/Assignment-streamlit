@@ -28,7 +28,7 @@ def load_model():
             scaler = pickle.load(f)
         return model, scaler
     except FileNotFoundError:
-        st.error("Model or scaler file not found! Make sure they are in your repo.")
+        
         return None, None
 
 df = load_data()
@@ -41,6 +41,10 @@ menu = st.sidebar.radio("Go to", ["Home", "Data Exploration", "Visualisations", 
 # ---------------- Home ----------------
 if menu == "Home":
     st.title("🚦 Road Accident Data Analysis & Prediction")
+    st.write("""
+    Welcome! This app allows you to explore road accident data, visualize statistics,
+    and predict total deaths based on accident features.
+    """)
     
     st.image("https://www.ghp-news.com/wp-content/uploads/2023/03/AdobeStock_570708583-2.jpg", use_container_width=True)
     
